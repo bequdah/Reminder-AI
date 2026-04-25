@@ -2,6 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
+from typing import Optional
 import database
 import ai_service
 import scheduler
@@ -25,6 +27,10 @@ def startup():
 def serve_home():
     return FileResponse("static/index.html")
 
+@app.get("/tasks-page")
+def tasks_page():
+    return FileResponse("static/tasks.html")
+
 # Dependency to get the DB session
 def get_db():
     db = database.SessionLocal()
@@ -33,30 +39,33 @@ def get_db():
     finally:
         db.close()
 
+# --- Pydantic Models ---
+class ReminderUpdate(BaseModel):
+    date: str
+    friendly_message: str
+
+# --- TASK ENDPOINTS ---
+
 @app.post("/tasks/")
 def create_task(
     user_input: str = Body(..., embed=True), 
     chat_history: list = Body(None, embed=True),
     db: Session = Depends(get_db)
 ):
-    # 1. Ask AI to parse correctly with history
     parsed_data = ai_service.parse_task_description(user_input, chat_history)
     
     if not parsed_data:
         raise HTTPException(status_code=400, detail="AI could not understand the task. Please be more specific with dates.")
 
-    # 2. Convert string dates to datetime objects
     try:
         s_date_str = parsed_data['start_date'].split(' ')[0]
         e_date_str = parsed_data['end_date'].split(' ')[0]
-        
         start_date = datetime.strptime(s_date_str, "%Y-%m-%d")
         end_date = datetime.strptime(e_date_str, "%Y-%m-%d")
         duration = (end_date - start_date).days
     except Exception as e:
-         raise HTTPException(status_code=400, detail=f"Invalid date format from AI: {parsed_data.get('start_date')} | {e}")
+        raise HTTPException(status_code=400, detail=f"Invalid date format from AI: {parsed_data.get('start_date')} | {e}")
 
-    # 3. Create the Task in DB
     new_task = database.Task(
         description=user_input,
         start_date=start_date,
@@ -64,7 +73,6 @@ def create_task(
         duration_days=duration,
         effort_level=parsed_data['effort_level']
     )
-    
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
@@ -82,18 +90,35 @@ def create_task(
         }
     }
 
-@app.get("/tasks/")
-def get_tasks(db: Session = Depends(get_db)):
-    return db.query(database.Task).all()
+@app.get("/api/tasks-full")
+def get_tasks_full(db: Session = Depends(get_db)):
+    tasks = db.query(database.Task).all()
+    result = []
+    for task in tasks:
+        reminders = db.query(database.Reminder).filter(database.Reminder.task_id == task.id).all()
+        result.append({
+            "id": task.id,
+            "description": task.description,
+            "start_date": task.start_date.isoformat() if task.start_date else None,
+            "end_date": task.end_date.isoformat() if task.end_date else None,
+            "duration_days": task.duration_days,
+            "effort_level": task.effort_level,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+            "reminders": [{
+                "id": r.id,
+                "reminder_time": r.reminder_time.isoformat() if r.reminder_time else None,
+                "message_type": r.message_type,
+                "is_sent": r.is_sent
+            } for r in reminders]
+        })
+    return result
 
 @app.post("/tasks/{task_id}/confirm")
 def confirm_reminders(task_id: int, reminders: list = Body(...), db: Session = Depends(get_db)):
     task = db.query(database.Task).filter(database.Task.id == task_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
-    
     db.query(database.Reminder).filter(database.Reminder.task_id == task_id).delete()
-
     for r in reminders:
         new_reminder = database.Reminder(
             task_id=task_id,
@@ -102,6 +127,53 @@ def confirm_reminders(task_id: int, reminders: list = Body(...), db: Session = D
             is_sent=False
         )
         db.add(new_reminder)
-    
     db.commit()
     return {"status": "success", "message": f"{len(reminders)} reminders scheduled."}
+
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int, db: Session = Depends(get_db)):
+    task = db.query(database.Task).filter(database.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    db.query(database.Reminder).filter(database.Reminder.task_id == task_id).delete()
+    db.delete(task)
+    db.commit()
+    return {"status": "success", "message": "Task and reminders deleted."}
+
+# --- REMINDER ENDPOINTS ---
+
+@app.post("/tasks/{task_id}/reminders")
+def add_reminder(task_id: int, reminder: ReminderUpdate, db: Session = Depends(get_db)):
+    task = db.query(database.Task).filter(database.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    new_reminder = database.Reminder(
+        task_id=task_id,
+        reminder_time=datetime.strptime(reminder.date, "%Y-%m-%d"),
+        message_type=reminder.friendly_message,
+        is_sent=False
+    )
+    db.add(new_reminder)
+    db.commit()
+    db.refresh(new_reminder)
+    return {"status": "success", "id": new_reminder.id}
+
+@app.put("/reminders/{reminder_id}")
+def update_reminder(reminder_id: int, reminder: ReminderUpdate, db: Session = Depends(get_db)):
+    r = db.query(database.Reminder).filter(database.Reminder.id == reminder_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    r.reminder_time = datetime.strptime(reminder.date, "%Y-%m-%d")
+    r.message_type = reminder.friendly_message
+    r.is_sent = False  # Reset sent status after edit
+    db.commit()
+    return {"status": "success"}
+
+@app.delete("/reminders/{reminder_id}")
+def delete_reminder(reminder_id: int, db: Session = Depends(get_db)):
+    r = db.query(database.Reminder).filter(database.Reminder.id == reminder_id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    db.delete(r)
+    db.commit()
+    return {"status": "success"}

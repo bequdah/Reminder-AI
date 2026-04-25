@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مهامي | Smart Reminder</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            color: #fff;
+            padding: 30px 20px;
+        }
+
+        .container { max-width: 950px; margin: 0 auto; }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 36px;
+        }
+
+        .logo { display: flex; align-items: center; gap: 12px; }
+        .logo h1 { font-size: 1.5rem; font-weight: 700; }
+
+        .back-btn {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.15);
+            color: #fff;
+            padding: 10px 22px;
+            border-radius: 50px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.85rem;
+            transition: all 0.3s;
+        }
+        .back-btn:hover { background: rgba(255,255,255,0.15); }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 18px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .stat-card .number { font-size: 2rem; font-weight: 700; color: #a78bfa; }
+        .stat-card .label { font-size: 0.8rem; color: rgba(255,255,255,0.5); margin-top: 4px; }
+
+        .task-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+            transition: border-color 0.3s;
+            animation: fadeIn 0.4s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .task-card:hover { border-color: rgba(167,139,250,0.3); }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            cursor: pointer;
+        }
+
+        .task-header-left { display: flex; align-items: center; gap: 14px; flex: 1; }
+
+        .task-name {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            line-height: 1.4;
+        }
+
+        .task-meta { display: flex; gap: 12px; margin-top: 5px; flex-wrap: wrap; }
+        .meta-item { font-size: 0.75rem; color: rgba(255,255,255,0.45); }
+        .meta-item span { color: rgba(255,255,255,0.75); }
+
+        .effort-badge {
+            padding: 4px 12px;
+            border-radius: 50px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .effort-Low { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(74,222,128,0.25); }
+        .effort-Medium { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+        .effort-High { background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+
+        .header-actions { display: flex; gap: 8px; align-items: center; }
+
+        .collapse-btn {
+            background: none; border: none; color: rgba(255,255,255,0.4);
+            font-size: 1rem; cursor: pointer; transition: transform 0.3s;
+            padding: 4px 8px;
+        }
+        .collapse-btn.open { transform: rotate(180deg); }
+
+        .task-body { padding: 20px 24px; display: none; }
+        .task-body.open { display: block; }
+
+        .section-label {
+            font-size: 0.72rem;
+            color: rgba(255,255,255,0.35);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 12px;
+            margin-top: 20px;
+        }
+        .section-label:first-child { margin-top: 0; }
+
+        /* Reminders */
+        .reminders-list { display: flex; flex-direction: column; gap: 8px; }
+
+        .reminder-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px;
+            padding: 12px 14px;
+            transition: all 0.2s;
+        }
+        .reminder-item:hover { background: rgba(255,255,255,0.07); }
+
+        .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .dot.sent { background: #4ade80; }
+        .dot.pending { background: #a78bfa; }
+
+        .reminder-date {
+            font-size: 0.82rem; color: #a78bfa; font-weight: 600; min-width: 100px;
+        }
+
+        .reminder-msg { font-size: 0.82rem; color: rgba(255,255,255,0.7); flex: 1; }
+
+        .reminder-status {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 50px;
+            white-space: nowrap;
+        }
+        .reminder-status.sent { background: rgba(74,222,128,0.1); color: #4ade80; }
+        .reminder-status.pending { background: rgba(167,139,250,0.1); color: #a78bfa; }
+
+        .reminder-actions { display: flex; gap: 6px; }
+
+        .icon-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 5px 8px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            transition: background 0.2s;
+            color: rgba(255,255,255,0.5);
+        }
+        .icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+        .icon-btn.del:hover { background: rgba(239,68,68,0.15); color: #f87171; }
+
+        /* Add Reminder Form */
+        .add-reminder-form {
+            background: rgba(167,139,250,0.06);
+            border: 1px dashed rgba(167,139,250,0.3);
+            border-radius: 14px;
+            padding: 16px;
+            margin-top: 10px;
+            display: none;
+        }
+        .add-reminder-form.open { display: block; animation: fadeIn 0.3s ease; }
+
+        .form-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+
+        .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 140px; }
+        .form-group label { font-size: 0.75rem; color: rgba(255,255,255,0.5); }
+
+        .form-input {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 9px 12px;
+            color: #fff;
+            font-size: 0.85rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus { border-color: rgba(167,139,250,0.5); }
+
+        .add-btn {
+            background: linear-gradient(135deg, #7c3aed, #a78bfa);
+            border: none;
+            color: #fff;
+            padding: 9px 18px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: 'Inter', sans-serif;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+        }
+        .add-btn:hover { opacity: 0.85; }
+
+        /* Task Bottom Actions */
+        .task-bottom-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 18px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255,255,255,0.07);
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.25s;
+            border: none;
+        }
+
+        .btn-add-reminder {
+            background: rgba(167,139,250,0.1);
+            border: 1px solid rgba(167,139,250,0.3);
+            color: #a78bfa;
+        }
+        .btn-add-reminder:hover { background: rgba(167,139,250,0.2); }
+
+        .btn-delete-task {
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #f87171;
+        }
+        .btn-delete-task:hover { background: rgba(239,68,68,0.2); }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(4px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal {
+            background: #1e1b4b;
+            border: 1px solid rgba(167,139,250,0.3);
+            border-radius: 20px;
+            padding: 28px;
+            width: 90%;
+            max-width: 440px;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal h3 { font-size: 1.1rem; margin-bottom: 20px; color: #a78bfa; }
+
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+
+        .btn-confirm {
+            flex: 1; padding: 11px; border-radius: 12px;
+            background: linear-gradient(135deg, #7c3aed, #a78bfa);
+            border: none; color: #fff; font-size: 0.85rem; font-weight: 600;
+            cursor: pointer; font-family: 'Inter', sans-serif;
+        }
+        .btn-cancel-modal {
+            flex: 1; padding: 11px; border-radius: 12px;
+            background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.7); font-size: 0.85rem; cursor: pointer;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: rgba(255,255,255,0.35);
+        }
+        .empty-state .icon { font-size: 3rem; margin-bottom: 14px; }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(74,222,128,0.15);
+            border: 1px solid rgba(74,222,128,0.3);
+            color: #4ade80;
+            padding: 12px 24px;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            z-index: 2000;
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <span>🔔</span>
+                <h1>مهامي المجدولة</h1>
+            </div>
+            <a href="/" class="back-btn">← العودة للشات</a>
+        </header>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="number" id="total-tasks">-</div>
+                <div class="label">مهمة نشطة</div>
+            </div>
+            <div class="stat-card">
+                <div class="number" id="pending-reminders">-</div>
+                <div class="label">تذكير قادم</div>
+            </div>
+            <div class="stat-card">
+                <div class="number" id="sent-reminders">-</div>
+                <div class="label">تذكير أُرسل</div>
+            </div>
+        </div>
+
+        <div id="tasks-container"></div>
+    </div>
+
+    <!-- Edit Modal -->
+    <div class="modal-overlay" id="edit-modal">
+        <div class="modal">
+            <h3>✏️ تعديل التذكير</h3>
+            <input type="hidden" id="edit-reminder-id">
+            <div class="form-group" style="margin-bottom:14px">
+                <label>التاريخ</label>
+                <input type="date" class="form-input" id="edit-date">
+            </div>
+            <div class="form-group">
+                <label>الرسالة</label>
+                <input type="text" class="form-input" id="edit-msg" placeholder="رسالة التذكير...">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-confirm" onclick="saveEdit()">حفظ التعديل</button>
+                <button class="btn-cancel-modal" onclick="closeModal()">إلغاء</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        let allTasks = [];
+
+        function showToast(msg, color = '#4ade80') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.color = color;
+            t.style.borderColor = color + '55';
+            t.style.background = color + '15';
+            t.style.display = 'block';
+            setTimeout(() => t.style.display = 'none', 2500);
+        }
+
+        async function loadTasks() {
+            const res = await fetch('/api/tasks-full');
+            allTasks = await res.json();
+            renderTasks();
+        }
+
+        function renderTasks() {
+            const container = document.getElementById('tasks-container');
+            let pending = 0, sent = 0;
+
+            allTasks.forEach(t => {
+                t.reminders.forEach(r => r.is_sent ? sent++ : pending++);
+            });
+
+            document.getElementById('total-tasks').textContent = allTasks.length;
+            document.getElementById('pending-reminders').textContent = pending;
+            document.getElementById('sent-reminders').textContent = sent;
+
+            if (allTasks.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>لا توجد مهام مجدولة بعد.<br>ارجع للشات وأضف مهمتك!</p></div>`;
+                return;
+            }
+
+            container.innerHTML = '';
+            allTasks.forEach(task => renderTaskCard(task, container));
+        }
+
+        function renderTaskCard(task, container) {
+            const card = document.createElement('div');
+            card.className = 'task-card';
+            card.id = `task-${task.id}`;
+
+            const remindersHTML = task.reminders.length > 0
+                ? task.reminders.map(r => `
+                    <div class="reminder-item" id="rem-${r.id}">
+                        <div class="dot ${r.is_sent ? 'sent' : 'pending'}"></div>
+                        <div class="reminder-date">${r.reminder_time?.split('T')[0] || '-'}</div>
+                        <div class="reminder-msg">${r.message_type || ''}</div>
+                        <div class="reminder-status ${r.is_sent ? 'sent' : 'pending'}">${r.is_sent ? '✅ أُرسل' : '⏳ قادم'}</div>
+                        <div class="reminder-actions">
+                            ${!r.is_sent ? `<button class="icon-btn" onclick="openEdit(${r.id}, '${r.reminder_time?.split('T')[0]}', \`${(r.message_type||'').replace(/`/g,"'")}\`)" title="تعديل">✏️</button>` : ''}
+                            <button class="icon-btn del" onclick="deleteReminder(${r.id}, ${task.id})" title="حذف">🗑</button>
+                        </div>
+                    </div>`).join('')
+                : '<div style="color:rgba(255,255,255,0.25);font-size:0.82rem;padding:6px">لا توجد تذكيرات — أضف واحداً أدناه</div>';
+
+            card.innerHTML = `
+                <div class="task-header" onclick="toggleTask(${task.id})">
+                    <div class="task-header-left">
+                        <div>
+                            <div class="task-name">${task.description}</div>
+                            <div class="task-meta">
+                                <div class="meta-item">📅 من <span>${task.start_date?.split('T')[0] || '-'}</span></div>
+                                <div class="meta-item">🏁 إلى <span>${task.end_date?.split('T')[0] || '-'}</span></div>
+                                <div class="meta-item">⏱ <span>${task.duration_days} يوم</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="header-actions">
+                        <div class="effort-badge effort-${task.effort_level || 'Medium'}">${task.effort_level || 'Medium'}</div>
+                        <button class="collapse-btn" id="btn-${task.id}">▼</button>
+                    </div>
+                </div>
+                <div class="task-body" id="body-${task.id}">
+                    <div class="section-label">مواعيد التذكير</div>
+                    <div class="reminders-list" id="reminders-${task.id}">${remindersHTML}</div>
+
+                    <div class="add-reminder-form" id="add-form-${task.id}">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>التاريخ</label>
+                                <input type="date" class="form-input" id="new-date-${task.id}">
+                            </div>
+                            <div class="form-group">
+                                <label>الرسالة</label>
+                                <input type="text" class="form-input" id="new-msg-${task.id}" placeholder="مثل: شد حيلك، ضل يومين!">
+                            </div>
+                            <button class="add-btn" onclick="addReminder(${task.id})">➕ إضافة</button>
+                        </div>
+                    </div>
+
+                    <div class="task-bottom-actions">
+                        <button class="action-btn btn-add-reminder" onclick="toggleAddForm(${task.id})">➕ إضافة تذكير</button>
+                        <button class="action-btn btn-delete-task" onclick="deleteTask(${task.id})">🗑 حذف المهمة كاملة</button>
+                    </div>
+                </div>
+            `;
+
+            container.appendChild(card);
+        }
+
+        function toggleTask(id) {
+            const body = document.getElementById(`body-${id}`);
+            const btn = document.getElementById(`btn-${id}`);
+            body.classList.toggle('open');
+            btn.classList.toggle('open');
+        }
+
+        function toggleAddForm(taskId) {
+            document.getElementById(`add-form-${taskId}`).classList.toggle('open');
+        }
+
+        async function addReminder(taskId) {
+            const date = document.getElementById(`new-date-${taskId}`).value;
+            const msg = document.getElementById(`new-msg-${taskId}`).value;
+            if (!date || !msg) return showToast('اكتب التاريخ والرسالة أولاً', '#f87171');
+
+            const res = await fetch(`/tasks/${taskId}/reminders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, friendly_message: msg })
+            });
+
+            if (res.ok) {
+                showToast('✅ تمت إضافة التذكير');
+                await loadTasks();
+                document.getElementById(`body-${taskId}`)?.classList.add('open');
+                document.getElementById(`btn-${taskId}`)?.classList.add('open');
+            } else {
+                showToast('❌ حصل خطأ', '#f87171');
+            }
+        }
+
+        function openEdit(id, date, msg) {
+            document.getElementById('edit-reminder-id').value = id;
+            document.getElementById('edit-date').value = date;
+            document.getElementById('edit-msg').value = msg;
+            document.getElementById('edit-modal').classList.add('open');
+        }
+
+        function closeModal() {
+            document.getElementById('edit-modal').classList.remove('open');
+        }
+
+        async function saveEdit() {
+            const id = document.getElementById('edit-reminder-id').value;
+            const date = document.getElementById('edit-date').value;
+            const msg = document.getElementById('edit-msg').value;
+            if (!date || !msg) return;
+
+            const res = await fetch(`/reminders/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date, friendly_message: msg })
+            });
+
+            if (res.ok) {
+                closeModal();
+                showToast('✅ تم تعديل التذكير');
+                await loadTasks();
+                // Re-open all task bodies
+                allTasks.forEach(t => {
+                    if (t.reminders.some(r => r.id == id)) {
+                        document.getElementById(`body-${t.id}`)?.classList.add('open');
+                        document.getElementById(`btn-${t.id}`)?.classList.add('open');
+                    }
+                });
+            }
+        }
+
+        async function deleteReminder(remId, taskId) {
+            if (!confirm('حذف هذا التذكير؟')) return;
+            const res = await fetch(`/reminders/${remId}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('🗑 تم حذف التذكير');
+                await loadTasks();
+                document.getElementById(`body-${taskId}`)?.classList.add('open');
+                document.getElementById(`btn-${taskId}`)?.classList.add('open');
+            }
+        }
+
+        async function deleteTask(id) {
+            if (!confirm('هل أنت متأكد من حذف المهمة كاملة مع كل تذكيراتها؟')) return;
+            const card = document.getElementById(`task-${id}`);
+            card.style.opacity = '0.4';
+            const res = await fetch(`/tasks/${id}`, { method: 'DELETE' });
+            if (res.ok) {
+                showToast('🗑 تم حذف المهمة');
+                await loadTasks();
+            } else {
+                card.style.opacity = '1';
+            }
+        }
+
+        document.getElementById('edit-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeModal();
+        });
+
+        loadTasks();
+    </script>
+</body>
+</html>
